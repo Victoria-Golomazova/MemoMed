@@ -1,29 +1,57 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import {
+    INestApplication,
+    ValidationPipe,
+} from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+import { AppModule } from '../src/app.module';
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+describe('App (e2e)', () => {
+    let app: INestApplication;
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-  });
+    beforeAll(async () => {
+        const moduleFixture =
+            await Test.createTestingModule({
+                imports: [AppModule],
+            }).compile();
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
-  });
+        app =
+            moduleFixture.createNestApplication();
 
-  afterEach(async () => {
-    await app.close();
-  });
+        app.setGlobalPrefix('api');
+
+        app.useGlobalPipes(
+            new ValidationPipe({
+                whitelist: true,
+                transform: true,
+                forbidNonWhitelisted: true,
+            }),
+        );
+
+        await app.init();
+    });
+
+    afterAll(async () => {
+        await app.close();
+    });
+
+    describe('/api/health', () => {
+        it('should return API status', () => {
+            return request(
+                app.getHttpServer(),
+            )
+                .get('/api/health')
+                .expect(200)
+                .expect((response) => {
+                    expect(
+                        response.body.status,
+                    ).toBe('ok');
+
+                    expect(
+                        response.body.service,
+                    ).toBe('memomed-api');
+                });
+        });
+    });
 });
